@@ -155,7 +155,6 @@ private:
   virtual void SetIpv4 (Ptr<Ipv4> ipv4);
   virtual void PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const;
 
-
   /* cache stores nix-vectors based on destination ip */
   NixMap_t m_nixCache;
 

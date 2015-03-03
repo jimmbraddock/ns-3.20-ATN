@@ -87,6 +87,7 @@ RandomWalk2dMobilityModel::DoInitializePrivate (void)
   m_helper.Update ();
   double speed = m_speed->GetValue ();
   double direction = m_direction->GetValue ();
+  std::cout << "Direction: " << atan(direction)*180/M_PI << std::endl;
   Vector vector (std::cos (direction) * speed,
                  std::sin (direction) * speed,
                  0.0);
@@ -100,7 +101,7 @@ RandomWalk2dMobilityModel::DoInitializePrivate (void)
     }
   else
     {
-      delayLeft = Seconds (m_modeDistance / speed); 
+      delayLeft = Seconds (m_modeDistance / speed);
     }
   DoWalk (delayLeft);
 }
@@ -162,6 +163,13 @@ RandomWalk2dMobilityModel::DoGetPosition (void) const
   m_helper.UpdateWithBounds (m_bounds);
   return m_helper.GetCurrentPosition ();
 }
+
+// double
+// RandomWalk2dMobilityModel::DoGetDirection(void) const
+// {
+//   return m_direction->GetValue();
+// }
+
 void
 RandomWalk2dMobilityModel::DoSetPosition (const Vector &position)
 {

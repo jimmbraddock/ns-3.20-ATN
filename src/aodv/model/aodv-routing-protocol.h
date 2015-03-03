@@ -15,10 +15,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Based on 
+ * Based on
  *      NS-2 AODV model developed by the CMU/MONARCH group and optimized and
  *      tuned by Samir Das and Mahesh Marina, University of Cincinnati;
- * 
+ *
  *      AODV-UU implementation by Erik Nordström of Uppsala University
  *      http://core.it.uu.se/core/index.php/AODV-UU
  *
@@ -47,7 +47,7 @@ namespace aodv
 {
 /**
  * \ingroup aodv
- * 
+ *
  * \brief AODV routing protocol
  */
 class RoutingProtocol : public Ipv4RoutingProtocol
@@ -101,6 +101,8 @@ public:
   */
   int64_t AssignStreams (int64_t stream);
 
+  RoutingTable GetRoutingTable () { return m_routingTable; }
+
 private:
   ///\name Protocol parameters.
   //\{
@@ -143,7 +145,7 @@ private:
   /// Raw socket per each IP interface, map socket -> iface address (IP + mask)
   std::map< Ptr<Socket>, Ipv4InterfaceAddress > m_socketAddresses;
   /// Loopback device used to defer RREQ until packet will be fully formed
-  Ptr<NetDevice> m_lo; 
+  Ptr<NetDevice> m_lo;
 
   /// Routing table
   RoutingTable m_routingTable;
@@ -265,7 +267,7 @@ private:
   void AckTimerExpire (Ipv4Address neighbor,  Time blacklistTimeout);
 
   /// Provides uniform random variables.
-  Ptr<UniformRandomVariable> m_uniformRandomVariable;  
+  Ptr<UniformRandomVariable> m_uniformRandomVariable;
   /// Keep track of the last bcast time
   Time m_lastBcastTime;
 };

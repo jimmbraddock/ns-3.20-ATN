@@ -55,6 +55,8 @@ public:
    * \return the current velocity.
    */
   Vector GetVelocity (void) const;
+
+  // double getDirection(void) const;
   /**
    * \param position a reference to another mobility model
    * \return the distance between the two objects. Unit is meters.
@@ -85,24 +87,24 @@ private:
   /**
    * \return the current position.
    *
-   * Concrete subclasses of this base class must 
+   * Concrete subclasses of this base class must
    * implement this method.
    */
   virtual Vector DoGetPosition (void) const = 0;
   /**
    * \param position the position to set.
    *
-   * Concrete subclasses of this base class must 
+   * Concrete subclasses of this base class must
    * implement this method.
    */
   virtual void DoSetPosition (const Vector &position) = 0;
   /**
    * \return the current velocity.
    *
-   * Concrete subclasses of this base class must 
+   * Concrete subclasses of this base class must
    * implement this method.
    */
-  virtual Vector DoGetVelocity (void) const = 0;
+   virtual Vector DoGetVelocity (void) const = 0;
   /**
    * The default implementation does nothing but return the passed-in
    * parameter.  Subclasses using random variables are expected to
@@ -110,6 +112,7 @@ private:
    */
   virtual int64_t DoAssignStreams (int64_t start);
 
+  //virtual double DoGetDirection (void) const;
   /**
    * Used to alert subscribers that a change in direction, velocity,
    * or position has occurred.

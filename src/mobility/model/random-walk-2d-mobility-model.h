@@ -43,7 +43,7 @@ namespace ns3 {
  * and speed. This model is often identified as a brownian motion
  * model.
  */
-class RandomWalk2dMobilityModel : public MobilityModel 
+class RandomWalk2dMobilityModel : public MobilityModel
 {
 public:
   static TypeId GetTypeId (void);
@@ -52,7 +52,6 @@ public:
     MODE_DISTANCE,
     MODE_TIME
   };
-
 private:
   void Rebound (Time timeLeft);
   void DoWalk (Time timeLeft);
@@ -62,6 +61,7 @@ private:
   virtual Vector DoGetPosition (void) const;
   virtual void DoSetPosition (const Vector &position);
   virtual Vector DoGetVelocity (void) const;
+  //virtual double DoGetDirection (void) const;
   virtual int64_t DoAssignStreams (int64_t);
 
   ConstantVelocityHelper m_helper;

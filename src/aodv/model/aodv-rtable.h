@@ -245,12 +245,16 @@ public:
   /// Print routing table
   void Print (Ptr<OutputStreamWrapper> stream) const;
 
+  std::map<Ipv4Address, RoutingTableEntry> GetRtEntry() const { return m_ipv4AddressEntry; }
+
+  /// const version of Purge, for use by Print() method
+  void Purge (std::map<Ipv4Address, RoutingTableEntry> &table) const;
 private:
   std::map<Ipv4Address, RoutingTableEntry> m_ipv4AddressEntry;
   /// Deletion time for invalid routes
   Time m_badLinkLifetime;
-  /// const version of Purge, for use by Print() method
-  void Purge (std::map<Ipv4Address, RoutingTableEntry> &table) const;
+
+
 };
 
 }

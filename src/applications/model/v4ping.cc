@@ -16,6 +16,7 @@
 
 #include "v4ping.h"
 #include "ns3/icmpv4.h"
+ #include "ns3/output-stream-wrapper.h"
 #include "ns3/assert.h"
 #include "ns3/log.h"
 #include "ns3/ipv4-address.h"
@@ -25,19 +26,30 @@
 #include "ns3/inet-socket-address.h"
 #include "ns3/packet.h"
 #include "ns3/trace-source-accessor.h"
+ #include "ns3/random-walk-2d-mobility-model.h"
+#include "ns3/mobility-model.h"
+ #include "ns3/core-module.h"
+ #include "ns3/ipv4.h"
+ #include "math.h"
+ #include "ns3/ipv4-routing-protocol.h"
+ #include "ns3/aodv-rtable.h"
+ #include "ns3/aodv-routing-protocol.h"
+ #include <typeinfo>
+#include "ns3/yans-wifi-phy.h"
+#include "ns3/snr-tag.h"
 
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("V4Ping");
 NS_OBJECT_ENSURE_REGISTERED (V4Ping);
 
-TypeId 
+TypeId
 V4Ping::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::V4Ping")
     .SetParent<Application> ()
     .AddConstructor<V4Ping> ()
-    .AddAttribute ("Remote", 
+    .AddAttribute ("Remote",
                    "The address of the machine we want to ping.",
                    Ipv4AddressValue (),
                    MakeIpv4AddressAccessor (&V4Ping::m_remote),
@@ -94,8 +106,7 @@ V4Ping::GetApplicationId (void) const
     {
       if (node->GetApplication (i) == this)
         {
-          return i;
-        }
+          return i;        }
     }
   NS_ASSERT_MSG (false, "forgot to add application to node");
   return 0; // quiet compiler
@@ -109,6 +120,7 @@ V4Ping::Receive (Ptr<Socket> socket)
     {
       Address from;
       Ptr<Packet> p = m_socket->RecvFrom (0xffffffff, 0, from);
+      NS_LOG_FUNCTION (p);
       NS_LOG_DEBUG ("recv " << p->GetSize () << " bytes");
       NS_ASSERT (InetSocketAddress::IsMatchingType (from));
       InetSocketAddress realFrom = InetSocketAddress::ConvertFrom (from);
@@ -149,6 +161,18 @@ V4Ping::Receive (Ptr<Socket> socket)
                       m_recv++;
                       m_traceRtt (delta);
 
+
+                      Ptr<Ipv4> ip = GetNode()->GetObject<Ipv4>();
+                      Ipv4InterfaceAddress iaddr = ip->GetAddress (1,0);
+                      Ipv4Address addri = iaddr.GetLocal ();
+
+                      SnrTag tag;
+                      if (p->PeekPacketTag(tag)){
+                          std::cout << "Received Packet with SRN = " << tag.Get() << " from " << realFrom.GetIpv4 () <<
+                                       " to " << addri << std::endl;
+                          //temp_snr = tag.Get();
+                      }
+
                       if (m_verbose)
                         {
                           std::cout << recvSize << " bytes from " << realFrom.GetIpv4 () << ":"
@@ -184,7 +208,11 @@ V4Ping::Read32 (const uint8_t *buffer, uint32_t &data)
   data = (buffer[3] << 24) + (buffer[2] << 16) + (buffer[1] << 8) + buffer[0];
 }
 
-void 
+void scheduleTest() {
+  std::cout << "Test scheduler at " << Simulator::Now () << std::endl;
+}
+
+void
 V4Ping::Send ()
 {
   NS_LOG_FUNCTION (this);
@@ -227,9 +255,51 @@ V4Ping::Send ()
   m_socket->Send (p, 0);
   m_next = Simulator::Schedule (m_interval, &V4Ping::Send, this);
   delete[] data;
+
+
+   Ptr<MobilityModel> mobModel = GetNode()->GetObject<MobilityModel> ();
+   Vector3D pos = mobModel->GetPosition ();
+   Vector3D speed = mobModel->GetVelocity ();
+   //double direction = mobModel->getDirection();
+   std::cout << "At " << Simulator::Now ().GetSeconds ()
+             << ": Position(" << pos.x << ", " << pos.y << ", " << pos.z
+             << ");   Speed(" << speed.x << ", " << speed.y << ", " << speed.z
+             << ") angle direction: " << atan(speed.x/speed.y)*180/M_PI << std::endl;
+  // get routing table
+  //
+  //
+   Ptr<ns3::Node> n = GetNode();
+   Ptr<Ipv4> ipv4 = n->GetObject<Ipv4> ();
+
+   Ptr<YansWifiPhy> r = GetNode()->GetObject<YansWifiPhy>();
+
+  // Ptr pkt = ns3::Create ();
+  // ns3::Ipv4Header header;
+  // header.SetDestination (ns3::Ipv4Address ("10.10.1.4"));
+  // header.SetSource (ns3::Ipv4Address ("10.10.1.1"));
+  // pkt->AddHeader(header);
+  // ns3::Socket::SocketErrno sockerr;
+  //
+  //
+   Ptr <ns3::Ipv4RoutingProtocol> rp = ipv4->GetRoutingProtocol ();
+   Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper>("/home/jimmbraddock/rablerouting.txt", std::ios::out);
+   rp->PrintRoutingTable(routingStream);
+
+
+  // ns3::aodv::RoutingTable rq = rp->GetRoutingTable();
+  // std::cout << typeid(rp).name() << std::endl;
+
+  // ns3::aodv::RoutingTableEntry rt;
+  // bool result = rq.LookupRoute(&(n->GetObject<ns3::Ipv4Address>()), rt);
+  // Ptr rt = routing->RouteOutput (pkt, header, 0, sockerr);
+  // std::cout<<"dst: "<GetDestination()<<"\t";
+  // std::cout<<"gateway *****: "<GetGateway()<<"\n";
+
+  std::cout << "scheduler test START: " << Simulator::Now() << std::endl;
+  Simulator::Schedule (Seconds ((0.3)), &scheduleTest);
 }
 
-void 
+void
 V4Ping::StartApplication (void)
 {
   NS_LOG_FUNCTION (this);
@@ -254,7 +324,7 @@ V4Ping::StartApplication (void)
 
   Send ();
 }
-void 
+void
 V4Ping::StopApplication (void)
 {
   NS_LOG_FUNCTION (this);
@@ -265,7 +335,7 @@ V4Ping::StopApplication (void)
     {
       std::ostringstream os;
       os.precision (4);
-      os << "--- " << m_remote << " ping statistics ---\n" 
+      os << "--- " << m_remote << " ping statistics ---\n"
          << m_seq << " packets transmitted, " << m_recv << " received, "
          << ((m_seq - m_recv) * 100 / m_seq) << "% packet loss, "
          << "time " << (Simulator::Now () - m_started).GetMilliSeconds () << "ms\n";

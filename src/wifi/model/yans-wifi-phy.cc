@@ -36,6 +36,7 @@
 #include "ns3/net-device.h"
 #include "ns3/trace-source-accessor.h"
 #include "ns3/boolean.h"
+#include "ns3/snr-tag.h"
 #include <cmath>
 
 NS_LOG_COMPONENT_DEFINE ("YansWifiPhy");
@@ -563,7 +564,6 @@ YansWifiPhy::SendPacket (Ptr<const Packet> packet, WifiMode txMode, WifiPreamble
    *  - we are idle
    */
   NS_ASSERT (!m_state->IsStateTx () && !m_state->IsStateSwitching ());
-
   Time txDuration = CalculateTxDuration (packet->GetSize (), txVector, preamble);
   if (m_state->IsStateRx ())
     {
@@ -622,8 +622,11 @@ void
 YansWifiPhy::Configure80211a (void)
 {
   NS_LOG_FUNCTION (this);
-  m_channelStartingFrequency = 5e3; // 5.000 GHz
+  // Для сети ATN нам потребуется частота в 120 МГц
+  m_channelStartingFrequency = 49; // 120 МГц
+ // m_channelStartingFrequency = 5e3; // 5.000 GHz
 
+  //m_deviceRateSet.push_back (WifiPhy::GetOfdmRate1_5MbpsBW5MHz ());
   m_deviceRateSet.push_back (WifiPhy::GetOfdmRate6Mbps ());
   m_deviceRateSet.push_back (WifiPhy::GetOfdmRate9Mbps ());
   m_deviceRateSet.push_back (WifiPhy::GetOfdmRate12Mbps ());
@@ -639,7 +642,7 @@ void
 YansWifiPhy::Configure80211b (void)
 {
   NS_LOG_FUNCTION (this);
-  m_channelStartingFrequency = 2407; // 2.407 GHz
+  m_channelStartingFrequency = 120;//2407; // 2.407 GHz
 
   m_deviceRateSet.push_back (WifiPhy::GetDsssRate1Mbps ());
   m_deviceRateSet.push_back (WifiPhy::GetDsssRate2Mbps ());
@@ -651,7 +654,7 @@ void
 YansWifiPhy::Configure80211g (void)
 {
   NS_LOG_FUNCTION (this);
-  m_channelStartingFrequency = 2407; // 2.407 GHz
+  m_channelStartingFrequency = 120;//2407; // 2.407 GHz
 
   m_deviceRateSet.push_back (WifiPhy::GetDsssRate1Mbps ());
   m_deviceRateSet.push_back (WifiPhy::GetDsssRate2Mbps ());
@@ -837,6 +840,17 @@ YansWifiPhy::EndReceive (Ptr<Packet> packet, Ptr<InterferenceHelper::Event> even
       double signalDbm = RatioToDb (event->GetRxPowerW ()) + 30;
       double noiseDbm = RatioToDb (event->GetRxPowerW () / snrPer.snr) - GetRxNoiseFigure () + 30;
       NotifyMonitorSniffRx (packet, (uint16_t)GetChannelFrequencyMhz (), GetChannelNumber (), dataRate500KbpsUnits, isShortPreamble, signalDbm, noiseDbm);
+
+      // =================================== ATN CODE SNR ===========================================================
+      SnrTag tag;
+      tag.Set(signalDbm - noiseDbm);
+      if (!packet->PeekPacketTag (tag))
+      {
+        packet->AddPacketTag (tag);
+        NS_LOG_INFO("SNR = " << tag.Get ());
+      }
+      // =================================== ATN CODE SNR ===========================================================
+
       m_state->SwitchFromRxEndOk (packet, snrPer.snr, event->GetPayloadMode (), event->GetPreambleType ());
     }
   else

@@ -57,7 +57,7 @@ WifiHelper::~WifiHelper ()
 }
 
 WifiHelper::WifiHelper ()
-  : m_standard (WIFI_PHY_STANDARD_80211a)
+  : m_standard (WIFI_PHY_STANDARD_80211g)
 {
 }
 

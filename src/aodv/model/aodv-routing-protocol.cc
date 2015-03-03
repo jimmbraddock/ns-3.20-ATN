@@ -42,6 +42,7 @@
 #include <algorithm>
 #include <limits>
 
+
 NS_LOG_COMPONENT_DEFINE ("AodvRoutingProtocol");
 
 namespace ns3
@@ -939,6 +940,16 @@ RoutingProtocol::RecvAodv (Ptr<Socket> socket)
   Ipv4Address sender = inetSourceAddr.GetIpv4 ();
   Ipv4Address receiver = m_socketAddresses[socket].GetLocal ();
   NS_LOG_DEBUG ("AODV node " << this << " received a AODV packet from " << sender << " to " << receiver);
+
+
+//  SnrTag tag;
+//  if (packet->PeekPacketTag(tag)){
+//      NS_LOG_DEBUG ("Received Packet with SRN = " << tag.Get());
+//      double temp_snr = tag.Get();
+//      std::cout << "Мега SNR: " << temp_snr << " AODV packet from " << sender << " to " << receiver << " in "
+//                << Simulator::Now().GetMilliSeconds () << " ms "<< std::endl;
+//  }
+
 
   UpdateRouteToNeighbor (sender, receiver);
   TypeHeader tHeader (AODVTYPE_RREQ);
