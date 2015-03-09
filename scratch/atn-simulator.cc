@@ -1,4 +1,4 @@
-#include "ns3/aodv-module.h"
+#include "ns3/olsr-module.h"
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -9,22 +9,15 @@
 #include "ns3/v4ping-helper.h"
 #include <iostream>
 #include <cmath>
+#include "ns3/on-off-helper.h"
+#include "ns3/packet-sink-helper.h"
 
 using namespace ns3;
 
-/**
- * \brief Test script.
- *
- * This script creates 1-dimensional grid topology and then ping last node from the first one:
- *
- * [10.0.0.1] <-- step --> [10.0.0.2] <-- step --> [10.0.0.3] <-- step --> [10.0.0.4]
- *
- * ping 10.0.0.4
- */
-class AodvExample
+class AtnSimulate
 {
 public:
-  AodvExample ();
+  AtnSimulate ();
   /// Configure script parameters, \return true on successful configuration
   bool Configure (int argc, char **argv);
   /// Run simulation
@@ -63,7 +56,7 @@ private:
 
 int main (int argc, char **argv)
 {
-  AodvExample test;
+  AtnSimulate test;
   if (!test.Configure (argc, argv))
     NS_FATAL_ERROR ("Configuration failed. Aborted.");
 
@@ -73,8 +66,8 @@ int main (int argc, char **argv)
 }
 
 //-----------------------------------------------------------------------------
-AodvExample::AodvExample () :
-  size (2),
+AtnSimulate::AtnSimulate () :
+  size (3),
   step (100),
   totalTime (10),
   pcap (true),
@@ -83,16 +76,16 @@ AodvExample::AodvExample () :
 }
 
 bool
-AodvExample::Configure (int argc, char **argv)
+AtnSimulate::Configure (int argc, char **argv)
 {
   // Enable AODV logs by default. Comment this if too noisy
   LogComponentEnable("V4Ping", LOG_LEVEL_ALL);
   LogComponentEnable("Atn", LOG_LEVEL_ALL);
-  //LogComponentEnable("AodvRoutingProtocol", LOG_LEVEL_FUNCTION);
+  LogComponentEnable("OlsrRoutingProtocol", LOG_LEVEL_DEBUG);
   LogComponentEnable("YansWifiPhy", LOG_INFO);
   //LogComponentEnable("YansWifiChannel", LOG_INFO);
 
-  SeedManager::SetSeed (12345);
+  //SeedManager::SetSeed (12345);
   CommandLine cmd;
 
   cmd.AddValue ("pcap", "Write PCAP traces.", pcap);
@@ -106,7 +99,7 @@ AodvExample::Configure (int argc, char **argv)
 }
 
 void
-AodvExample::Run ()
+AtnSimulate::Run ()
 {
 //  Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (1)); // enable rts cts all the time.
   CreateNodes ();
@@ -122,12 +115,12 @@ AodvExample::Run ()
 }
 
 void
-AodvExample::Report (std::ostream &)
+AtnSimulate::Report (std::ostream &)
 {
 }
 
 void
-AodvExample::CreateNodes ()
+AtnSimulate::CreateNodes ()
 {
   std::cout << "Creating " << (unsigned)size << " nodes " << step << " m apart.\n";
   nodes.Create (size);
@@ -149,24 +142,24 @@ AodvExample::CreateNodes ()
 
   MobilityHelper mobility;
   mobility.SetMobilityModel("ns3::GaussMarkovMobilityModel",
-                            "Bounds", BoxValue (Box (0, 1500, 0, 1500, 0, 1000)),
+                            "Bounds", BoxValue (Box (0, 1500, 0, 1500, 0, 0)),
                             "TimeStep", TimeValue (Seconds (0.5)),
                             "Alpha", DoubleValue (0.85),
-                            "MeanVelocity", StringValue ("ns3::UniformRandomVariable[Min=80|Max=120]"),
+                            "MeanVelocity", StringValue ("ns3::UniformRandomVariable[Min=250|Max=600]"),
                             "MeanDirection", StringValue ("ns3::UniformRandomVariable[Min=0|Max=6.283185307]"),
                             "MeanPitch", StringValue ("ns3::UniformRandomVariable[Min=0.05|Max=0.05]"),
                             "NormalVelocity", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.0|Bound=0.0]"),
                             "NormalDirection", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.2|Bound=0.4]"),
                             "NormalPitch", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.02|Bound=0.04]"));
   mobility.SetPositionAllocator("ns3::RandomBoxPositionAllocator",
-                                "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=400]"),
-                                "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=400]"),
+                                "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+                                "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
                                 "Z", StringValue ("ns3::UniformRandomVariable[Min=0|Max=0]"));
   mobility.Install (nodes);
 }
 
 void
-AodvExample::CreateDevices ()
+AtnSimulate::CreateDevices ()
 {
   NqosWifiMacHelper wifiMac = NqosWifiMacHelper::Default ();
   wifiMac.SetType ("ns3::AdhocWifiMac");
@@ -191,43 +184,53 @@ AodvExample::CreateDevices ()
 
   if (pcap)
     {
-      wifiPhy.EnablePcapAll (std::string ("aodv"));
+      wifiPhy.EnablePcapAll (std::string ("atn-simulator"));
     }
 }
 
 void
-AodvExample::InstallInternetStack ()
+AtnSimulate::InstallInternetStack ()
 {
-  AodvHelper aodv;
-  // you can configure AODV attributes here using aodv.Set(name, value)
+  OlsrHelper olsr;
   InternetStackHelper stack;
-  stack.SetRoutingHelper (aodv); // has effect on the next Install ()
+  stack.SetRoutingHelper (olsr); // has effect on the next Install ()
   stack.Install (nodes);
+
   Ipv4AddressHelper address;
   address.SetBase ("10.0.0.0", "255.0.0.0");
   interfaces = address.Assign (devices);
 
-  // if (printRoutes)
-  //   {
-      Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("aodv.routes", std::ios::out);
-      aodv.PrintRoutingTableAllAt (Seconds (8), routingStream);
-    // }
+//  Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> ("olsr.routes", std::ios::out);
+//  olsr.PrintRoutingTableAllAt (Seconds (8), routingStream);
 }
 
 void
-AodvExample::InstallApplications ()
+AtnSimulate::InstallApplications ()
 {
-  AtnHelper app;
-  ApplicationContainer p = app.Install (nodes);
-//  V4PingHelper ping (interfaces.GetAddress (size - 1));
-//  ping.SetAttribute ("Verbose", BooleanValue (true));
-//  ApplicationContainer p = ping.Install (nodes.Get (0));
-  p.Start (Seconds (0));
-  p.Stop (Seconds (totalTime) - Seconds (0.001));
+  AtnHelper atn;
+  ApplicationContainer app = atn.Install (nodes);
+  app.Start (Seconds (0));
+  app.Stop (Seconds (totalTime) - Seconds (0.001));
 
-  // move node away
-//  Ptr<Node> node = nodes.Get (size/2);
-//  Ptr<MobilityModel> mob = node->GetObject<MobilityModel> ();
-//  Simulator::Schedule (Seconds (totalTime/3), &MobilityModel::SetPosition, mob, Vector (1e5, 1e5, 1e5));
+
+  Ptr<Node> appSource = NodeList::GetNode (0);
+  Ptr<Node> appSink = NodeList::GetNode (2);
+  // Let's fetch the IP address of the last node, which is on Ipv4Interface 1
+  Ipv4Address remoteAddr = appSink->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
+
+  OnOffHelper onoff ("ns3::UdpSocketFactory",
+                     Address (InetSocketAddress (remoteAddr, 4567)));
+  onoff.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
+  onoff.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
+  ApplicationContainer app2 = onoff.Install (appSource);
+  app2.Start (Seconds (3));
+  app2.Stop (Seconds (7));
+
+  // Create a packet sink to receive these packets
+  PacketSinkHelper sink ("ns3::UdpSocketFactory",
+                         InetSocketAddress (Ipv4Address::GetAny (), 4567));
+  ApplicationContainer app3 = sink.Install (appSink);
+  app3.Start (Seconds (3));
+  app3.Stop (Seconds (totalTime) - Seconds (0.001));
 }
 

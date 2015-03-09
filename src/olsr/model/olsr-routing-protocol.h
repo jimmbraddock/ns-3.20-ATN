@@ -27,7 +27,6 @@
 #include "ns3/test.h"
 #include "olsr-state.h"
 #include "olsr-repositories.h"
-
 #include "ns3/object.h"
 #include "ns3/packet.h"
 #include "ns3/node.h"
@@ -136,6 +135,11 @@ public:
    * \returns the internal HNA table
    */
   Ptr<const Ipv4StaticRouting> GetRoutingTableAssociation () const;
+
+  //========================== ATN CODE =========================================
+  void RemovePath (const Ipv4Address &dest);
+  void SendHello ();
+  // ================================================================================
 
 protected:
   virtual void DoInitialize (void);
@@ -254,7 +258,9 @@ private:
                        const Ipv4Address &senderAddress);
   void QueueMessage (const olsr::MessageHeader &message, Time delay);
   void SendQueuedMessages ();
-  void SendHello ();
+  // ============================== ATN CODE =======================================
+  //void SendHello ();
+  // ================================================================================
   void SendTc ();
   void SendMid ();
   void SendHna ();

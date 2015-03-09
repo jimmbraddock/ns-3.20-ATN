@@ -22,8 +22,7 @@
 #include "ns3/nstime.h"
 #include "ns3/average.h"
 #include "ns3/simulator.h"
-#include "ns3/aodv-rtable.h"
-#include "ns3/aodv-routing-protocol.h"
+#include "ns3/olsr-routing-protocol.h"
 #include <map>
 
 namespace ns3 {
@@ -92,10 +91,10 @@ private:
   uint32_t m_size;
 
   /// Пул передающих сокетов
-  std::map<ns3::Ipv4Address, Ptr<Socket> > m_SenderSockets;
+  std::map<ns3::Ipv4Address, Ptr<Socket> > m_senderSockets;
 
   /// Принимающий сокет
-  Ptr<Socket> m_ListenSocket;
+  Ptr<Socket> m_listenSocket;
 
   /// produce ping-style output if true
   bool m_verbose;
@@ -110,7 +109,7 @@ private:
   std::map<ns3::Ipv4Address, std::vector< Ptr<SnrHistory> > > m_snrHistory;
 
   /// Таблица маршрутизации
-  aodv::RoutingTable m_rtable;
+  //aodv::RoutingTable m_rtable;
 };
 
 } // namespace ns3

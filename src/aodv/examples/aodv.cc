@@ -42,10 +42,10 @@ using namespace ns3;
  * 
  * ping 10.0.0.4
  */
-class AodvExample 
+class AtnSimulate 
 {
 public:
-  AodvExample ();
+  AtnSimulate ();
   /// Configure script parameters, \return true on successful configuration
   bool Configure (int argc, char **argv);
   /// Run simulation
@@ -84,7 +84,7 @@ private:
 
 int main (int argc, char **argv)
 {
-  AodvExample test;
+  AtnSimulate test;
   if (!test.Configure (argc, argv))
     NS_FATAL_ERROR ("Configuration failed. Aborted.");
 
@@ -94,7 +94,7 @@ int main (int argc, char **argv)
 }
 
 //-----------------------------------------------------------------------------
-AodvExample::AodvExample () :
+AtnSimulate::AtnSimulate () :
   size (10),
   step (100),
   totalTime (10),
@@ -104,7 +104,7 @@ AodvExample::AodvExample () :
 }
 
 bool
-AodvExample::Configure (int argc, char **argv)
+AtnSimulate::Configure (int argc, char **argv)
 {
   // Enable AODV logs by default. Comment this if too noisy
   // LogComponentEnable("AodvRoutingProtocol", LOG_LEVEL_ALL);
@@ -123,7 +123,7 @@ AodvExample::Configure (int argc, char **argv)
 }
 
 void
-AodvExample::Run ()
+AtnSimulate::Run ()
 {
 //  Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (1)); // enable rts cts all the time.
   CreateNodes ();
@@ -139,12 +139,12 @@ AodvExample::Run ()
 }
 
 void
-AodvExample::Report (std::ostream &)
+AtnSimulate::Report (std::ostream &)
 { 
 }
 
 void
-AodvExample::CreateNodes ()
+AtnSimulate::CreateNodes ()
 {
   std::cout << "Creating " << (unsigned)size << " nodes " << step << " m apart.\n";
   nodes.Create (size);
@@ -169,7 +169,7 @@ AodvExample::CreateNodes ()
 }
 
 void
-AodvExample::CreateDevices ()
+AtnSimulate::CreateDevices ()
 {
   NqosWifiMacHelper wifiMac = NqosWifiMacHelper::Default ();
   wifiMac.SetType ("ns3::AdhocWifiMac");
@@ -187,7 +187,7 @@ AodvExample::CreateDevices ()
 }
 
 void
-AodvExample::InstallInternetStack ()
+AtnSimulate::InstallInternetStack ()
 {
   AodvHelper aodv;
   // you can configure AODV attributes here using aodv.Set(name, value)
@@ -206,7 +206,7 @@ AodvExample::InstallInternetStack ()
 }
 
 void
-AodvExample::InstallApplications ()
+AtnSimulate::InstallApplications ()
 {
   V4PingHelper ping (interfaces.GetAddress (size - 1));
   ping.SetAttribute ("Verbose", BooleanValue (true));

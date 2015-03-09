@@ -47,6 +47,11 @@
 #include "ns3/enum.h"
 #include "ns3/trace-source-accessor.h"
 #include "ns3/ipv4-header.h"
+#include "ns3/mobility-model.h"
+#include "ns3/core-module.h"
+#include "math.h"
+#include <typeinfo>
+#include "ns3/snr-tag.h"
 
 /********** Useful macros **********/
 
@@ -363,6 +368,13 @@ RoutingProtocol::RecvOlsr (Ptr<Socket> socket)
   Ptr<Packet> receivedPacket;
   Address sourceAddress;
   receivedPacket = socket->RecvFrom (sourceAddress);
+
+  //======================================= ATN CODE =============================================================
+//  SnrTag tag;
+//  if (receivedPacket->PeekPacketTag(tag)) {
+//      NS_LOG_DEBUG("Received Packet with SNR = " << tag.Get());
+//  }
+  // =============================================================================================================
 
   InetSocketAddress inetSourceAddr = InetSocketAddress::ConvertFrom (sourceAddress);
   Ipv4Address senderIfaceAddr = inetSourceAddr.GetIpv4 ();
@@ -3298,8 +3310,18 @@ RoutingProtocol::GetRoutingTableEntries () const
   for (std::map<Ipv4Address, RoutingTableEntry>::const_iterator iter = m_table.begin ();
        iter != m_table.end (); iter++)
     {
+      NS_LOG_DEBUG("[TableEntry From] " << iter->first << " id:" << GetObject<Node>()->GetId());
       retval.push_back (iter->second);
+      NS_LOG_DEBUG("[TableEntry From] dest: " << iter->second.destAddr << " distance: " << iter->second.distance <<
+                   "nextAddr: " << iter->second.nextAddr);
     }
+//   Ptr<MobilityModel> mobModel = GetObject<Node>()->GetObject<MobilityModel> ();
+//   Vector3D pos = mobModel->GetPosition ();
+//   Vector3D speed = mobModel->GetVelocity ();
+//   NS_LOG_DEBUG( "At " << Simulator::Now ().GetSeconds ()
+//             << ": Position(" << pos.x << ", " << pos.y << ", " << pos.z
+//             << ");   Speed(" << speed.x << ", " << speed.y << ", " << speed.z
+//             << ") angle direction: " << atan(speed.x/speed.y)*180/M_PI << std::endl);
   return retval;
 }
 
@@ -3354,6 +3376,10 @@ RoutingProtocol::Dump (void)
     }
   NS_LOG_DEBUG ("");
 #endif  //NS3_LOG_ENABLE
+}
+
+void RoutingProtocol::RemovePath (const Ipv4Address &dest) {
+  RemoveEntry (dest);
 }
 
 Ptr<const Ipv4StaticRouting>
