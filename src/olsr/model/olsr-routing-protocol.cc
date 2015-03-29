@@ -1196,6 +1196,9 @@ RoutingProtocol::RoutingTableComputation ()
 
   NS_LOG_DEBUG ("Node " << m_mainAddress << ": RoutingTableComputation end.");
   m_routingTableChanged (GetSize ());
+  NS_LOG_DEBUG("Таблица маршрутизации: ");
+  for (std::map<ns3::Ipv4Address, ns3::olsr::RoutingTableEntry>::iterator i = m_table.begin(); i != m_table.end (); ++i)
+    NS_LOG_DEBUG("Узел: " << i->first);
 }
 
 
@@ -3379,7 +3382,8 @@ RoutingProtocol::Dump (void)
 }
 
 void RoutingProtocol::RemovePath (const Ipv4Address &dest) {
-  RemoveEntry (dest);
+  if (m_state.FindLinkTuple(dest) != NULL)
+    RemoveLinkTuple (*m_state.FindLinkTuple(dest));
 }
 
 Ptr<const Ipv4StaticRouting>

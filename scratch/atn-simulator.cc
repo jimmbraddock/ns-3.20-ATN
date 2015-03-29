@@ -67,7 +67,7 @@ int main (int argc, char **argv)
 
 //-----------------------------------------------------------------------------
 AtnSimulate::AtnSimulate () :
-  size (3),
+  size (2),
   step (100),
   totalTime (10),
   pcap (true),
@@ -135,14 +135,14 @@ AtnSimulate::CreateNodes ()
   // На 120 метрах возможна связь. Пока это предел
 //  Ptr<MobilityModel> m = CreateObject<ConstantPositionMobilityModel> ();
 //  Ptr<MobilityModel> m2 = CreateObject<ConstantPositionMobilityModel> ();
-//  m2->SetPosition (Vector (0, 600, 0));
+//  m2->SetPosition (Vector (60, 0, 0));
 //  nodes.Get (0)->AggregateObject (m);
 
 //  nodes.Get (1)->AggregateObject (m2);
 
   MobilityHelper mobility;
   mobility.SetMobilityModel("ns3::GaussMarkovMobilityModel",
-                            "Bounds", BoxValue (Box (0, 1500, 0, 1500, 0, 0)),
+                            "Bounds", BoxValue (Box (0, 1000, 0, 1000, 0, 0)),
                             "TimeStep", TimeValue (Seconds (0.5)),
                             "Alpha", DoubleValue (0.85),
                             "MeanVelocity", StringValue ("ns3::UniformRandomVariable[Min=250|Max=600]"),
@@ -213,24 +213,24 @@ AtnSimulate::InstallApplications ()
   app.Stop (Seconds (totalTime) - Seconds (0.001));
 
 
-  Ptr<Node> appSource = NodeList::GetNode (0);
-  Ptr<Node> appSink = NodeList::GetNode (2);
-  // Let's fetch the IP address of the last node, which is on Ipv4Interface 1
-  Ipv4Address remoteAddr = appSink->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
+//  Ptr<Node> appSource = NodeList::GetNode (0);
+//  Ptr<Node> appSink = NodeList::GetNode (2);
+//  // Let's fetch the IP address of the last node, which is on Ipv4Interface 1
+//  Ipv4Address remoteAddr = appSink->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
 
-  OnOffHelper onoff ("ns3::UdpSocketFactory",
-                     Address (InetSocketAddress (remoteAddr, 4567)));
-  onoff.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
-  onoff.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
-  ApplicationContainer app2 = onoff.Install (appSource);
-  app2.Start (Seconds (3));
-  app2.Stop (Seconds (7));
+//  OnOffHelper onoff ("ns3::UdpSocketFactory",
+//                     Address (InetSocketAddress (remoteAddr, 4567)));
+//  onoff.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
+//  onoff.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
+//  ApplicationContainer app2 = onoff.Install (appSource);
+//  app2.Start (Seconds (3));
+//  app2.Stop (Seconds (7));
 
-  // Create a packet sink to receive these packets
-  PacketSinkHelper sink ("ns3::UdpSocketFactory",
-                         InetSocketAddress (Ipv4Address::GetAny (), 4567));
-  ApplicationContainer app3 = sink.Install (appSink);
-  app3.Start (Seconds (3));
-  app3.Stop (Seconds (totalTime) - Seconds (0.001));
+//  // Create a packet sink to receive these packets
+//  PacketSinkHelper sink ("ns3::UdpSocketFactory",
+//                         InetSocketAddress (Ipv4Address::GetAny (), 4567));
+//  ApplicationContainer app3 = sink.Install (appSink);
+//  app3.Start (Seconds (3));
+//  app3.Stop (Seconds (totalTime) - Seconds (0.001));
 }
 

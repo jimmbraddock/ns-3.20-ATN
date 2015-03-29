@@ -25,6 +25,14 @@
 #include "ns3/olsr-routing-protocol.h"
 #include <map>
 
+
+const int MIN_REGRESSION_SIZE = 20;
+const double MIN_SNR = 10.0;
+const int REQUEST = 1;
+const int RESPONSE = 2;
+const int ERROR = 3;
+const int ANTENNA_RADIUS = 600;
+
 namespace ns3 {
 
 class Socket;
@@ -33,6 +41,13 @@ struct SnrHistory: Object {
   double snr;
   Time time;
   SnrHistory(double newSnr, Time now) : snr(newSnr), time(now) {}
+};
+
+struct NeighbourPos {
+  double posX;
+  double posY;
+  double speedX;
+  double speedY;
 };
 
 /**
@@ -55,11 +70,6 @@ public:
   virtual ~Atn ();
 
 private:
-
-  static const int MIN_REGRESSION_SIZE = 20;
-  static const double MIN_SNR = 10.0;
-
-
   void GetRoutingTable();
 
   // inherited from Application base class.
@@ -75,7 +85,7 @@ private:
 
   void Receive (Ptr<Socket> socket);
 
-  void Send (Ptr<Socket> sock);
+  void Send (Ptr<Socket> sock, const int& msgType, Ipv4Address newNeighbour);
 
   /**
    * @brief Вычисляет через какое время необходимо опросить узел. Данные для анализа берутся за временной промежуток,
@@ -83,6 +93,14 @@ private:
    * @param node опрашиваемый узел
    */
   Time calculateNextInterview(Ipv4Address &node);
+
+  void WritePos(const int &msgType, std::string &data, Ipv4Address newNeighbour);
+
+  /// Получение списка ip адресов соседей, радиус зоны передачи которых охватывает sender'a
+  std::vector<ns3::Ipv4Address> getCrossNeighbours(ns3::Ipv4Address sender);
+
+  /// Отправка ответа в зависимости от типа сообщения
+  void SendReply(const int &msgType, ns3::Ipv4Address sender);
 
   /**
    * Specifies  the number of data bytes to be sent.
@@ -109,7 +127,7 @@ private:
   std::map<ns3::Ipv4Address, std::vector< Ptr<SnrHistory> > > m_snrHistory;
 
   /// Таблица маршрутизации
-  //aodv::RoutingTable m_rtable;
+  std::map<ns3::Ipv4Address, NeighbourPos*> neighbourPos;
 };
 
 } // namespace ns3
