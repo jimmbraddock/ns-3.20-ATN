@@ -4,3 +4,5 @@ build/
 .*/
 .*_build
 *.pcap
+/olsr.routes
+/ns3.creator.user
