@@ -107,6 +107,9 @@ Atn::Receive (Ptr<Socket> socket)
     NS_ASSERT (InetSocketAddress::IsMatchingType (from));
     InetSocketAddress realFrom = InetSocketAddress::ConvertFrom (from);
     sender = realFrom.GetIpv4 ();
+    if (m_senderSockets.find(sender) == m_senderSockets.end ())
+      AddNodeToTable(sender);
+
     Ptr<Ipv4> ip = GetNode()->GetObject<Ipv4>();
     Ipv4Address addri = ip->GetAddress (1,0).GetLocal ();
     SnrTag tag;
@@ -114,13 +117,13 @@ Atn::Receive (Ptr<Socket> socket)
         Ptr<SnrHistory> note = new SnrHistory(tag.Get(), Simulator::Now());
         m_snrHistory[realFrom.GetIpv4 ()].push_back(note);
 
-        NS_LOG_DEBUG("Received Packet with SNR = " << tag.Get() << " from " << realFrom.GetIpv4 () <<
+        NS_LOG_DEBUG("[node "<<GetNode ()->GetId ()<<"] Received Packet with SNR = " << tag.Get() << " from " << realFrom.GetIpv4 () <<
                        " to " << addri);
 
         uint8_t* buffer = new uint8_t[packet->GetSize()];
         packet->CopyData (buffer, packet->GetSize());
         std::string s( buffer, buffer + packet->GetSize());
-        NS_LOG_DEBUG("Полезная нагрузка: " << s);
+        NS_LOG_DEBUG("[node "<<GetNode()->GetId ()<<"] Полезная нагрузка: " << s);
 
 
         // Парсинг строки через удаление пробелов
@@ -129,30 +132,32 @@ Atn::Receive (Ptr<Socket> socket)
         int counter = 1;
         int msgType = 0;
         ns3::Ipv4Address newNeighbour;
-        if (neighbourPos.find (sender) == neighbourPos.end ()) {
+        if (m_neighbourPos.find (sender) == m_neighbourPos.end ()) {
           NeighbourPos *neigh = new NeighbourPos();
-          neighbourPos.insert (std::pair<ns3::Ipv4Address, NeighbourPos*>(sender, neigh));
+          m_neighbourPos.insert (std::pair<ns3::Ipv4Address, NeighbourPos*>(sender, neigh));
         }
         while ((pos = s.find(" ")) != std::string::npos) {
 
             token = s.substr(0, pos);
             std::cout << token << std::endl;
             s.erase(0, pos + 1);
+            double temp = 0.0;
             switch (counter) {
               case 1:
                 msgType = std::atoi(token.c_str ());
                 break;
               case 2:
-                neighbourPos[sender]->posX = std::atof(token.c_str ());
+                temp = std::atof(token.c_str ());
+                m_neighbourPos[sender]->posX = temp;
                 break;
               case 3:
-                neighbourPos[sender]->posY = std::atof(token.c_str ());
+                m_neighbourPos[sender]->posY = std::atof(token.c_str ());
                 break;
               case 4:
-                neighbourPos[sender]->speedX = std::atof(token.c_str ());
+                m_neighbourPos[sender]->speedX = std::atof(token.c_str ());
                 break;
               case 5:
-                neighbourPos[sender]->speedY = std::atof(token.c_str ());
+                m_neighbourPos[sender]->speedY = std::atof(token.c_str ());
                 break;
               case 6:
                 newNeighbour.Set ((uint32_t) std::atoi(token.c_str ()));
@@ -166,52 +171,60 @@ Atn::Receive (Ptr<Socket> socket)
         // Отправим всем соседям сведение о том, что в радиус их действия вошел sender
         std::vector<ns3::Ipv4Address> crossNeigh = getCrossNeighbours(sender);
         if (!crossNeigh.empty ())
-          for (std::vector<ns3::Ipv4Address>::const_iterator it = crossNeigh.begin (); it != crossNeigh.end (); ++it) {
-            Send(m_senderSockets[*it], RESPONSE, sender);
+          for (std::vector<ns3::Ipv4Address>::iterator it = crossNeigh.begin (); it != crossNeigh.end (); ++it) {
+            Send(m_senderSockets[*it], RESPONSE, sender.Get ());
           }
-        SendReply(msgType, sender);
+        SendReply(msgType, sender, &newNeighbour);
     }
   }
 }
 
+// Проверим дистанцию, которая будет через секунду и отправим Hello
 std::vector<ns3::Ipv4Address> Atn::getCrossNeighbours(ns3::Ipv4Address sender) {
-  return std::vector<ns3::Ipv4Address>();
+  double senderNextX = m_neighbourPos[sender]->posX + m_neighbourPos[sender]->speedX;
+  double senderNextY = m_neighbourPos[sender]->posY + m_neighbourPos[sender]->speedY;
+  std::vector<ns3::Ipv4Address> neigh;
+  for (std::map<ns3::Ipv4Address, NeighbourPos*>::const_iterator it = m_neighbourPos.begin (); it != m_neighbourPos.end (); ++it) {
+    if (it->first == sender)
+      continue;
+
+    double nextX = it->second->posX + it->second->speedX;
+    double nextY = it->second->posY + it->second->speedY;
+
+    double distance = sqrt(pow(senderNextX - nextX, 2) + pow(senderNextY - nextY, 2));
+    if (distance < ANTENNA_RADIUS)
+      neigh.push_back(it->first);
+  }
+  return neigh;
 }
 
-void Atn::SendReply(const int &msgType, ns3::Ipv4Address sender) {
+void Atn::SendReply(const int &msgType, ns3::Ipv4Address sender, ns3::Ipv4Address *newNeighbour) {
   int status = 0;
-  if (msgType == 1) {
-    NS_LOG_DEBUG("Отправляем обратно пакет к " << sender);
+
+  // Пришел ответ
+  Ptr<ns3::Node> n = GetNode();
+  Ptr<Ipv4> ipv4 = n->GetObject<Ipv4> ();
+  Ptr <ns3::Ipv4RoutingProtocol> rp = ipv4->GetRoutingProtocol ();
+  Ptr<olsr::RoutingProtocol> olsrRp = DynamicCast<olsr::RoutingProtocol> (rp);
+
+  if (msgType == REQUEST) {
+    NS_LOG_DEBUG("[node " << GetNode ()->GetId () << "] Отправляем обратно пакет к " << sender);
 
     if (m_senderSockets.find (sender) != m_senderSockets.end ()) {
-      Send(m_senderSockets[sender], RESPONSE, NULL);
-      NS_ASSERT (status != -1);
-    } else {
-      NS_LOG_DEBUG("Узла " << sender << " в таблице маршрутизации не имеется");
+      status = Send(m_senderSockets[sender], RESPONSE, 0);
+      if (status < 0) {
+        olsrRp->SendHello ();
+        NS_LOG_DEBUG("[node " << GetNode ()->GetId () << "] Узла " << sender << " в таблице маршрутизации не имеется."<<
+                                                         "Отправляем HELLO");
+      }
     }
   } else {
-      // Пришел ответ
-      Ptr<ns3::Node> n = GetNode();
-      Ptr<Ipv4> ipv4 = n->GetObject<Ipv4> ();
-      Ptr <ns3::Ipv4RoutingProtocol> rp = ipv4->GetRoutingProtocol ();
-      Ptr<olsr::RoutingProtocol> olsrRp = DynamicCast<olsr::RoutingProtocol> (rp);
-      if (msgType == 2) {
-        Time nextInterview = calculateNextInterview(sender);
-        NS_LOG_DEBUG("nextTime: " << nextInterview);
-        if (nextInterview < Seconds(1.0) && nextInterview >= Seconds(0.0)) {
-          // TODO: отправка пакета обратно, чтобы и отправитель удалил
-          Send(m_senderSockets[sender], ERROR, NULL);
-          // Требуется заменить на удаление из NeighborSet  в m_state
-          // Так как на основе состояния пересчитывается таблица маршрутизации m_route
-          olsrRp->RemovePath (sender);
-          m_snrHistory.erase (sender);
+
+      if (msgType == RESPONSE) {
+        if (newNeighbour != NULL && m_senderSockets.find (*newNeighbour) == m_senderSockets.end())
           olsrRp->SendHello ();
 
-          //NS_ASSERT(status != -1);
-        } else {
-          NS_LOG_DEBUG("Опросим узел " << sender << " через " << nextInterview);
-          Simulator::Schedule (nextInterview, &Atn::Send, this, m_senderSockets[sender], REQUEST, sender);
-        }
+        InterviewNeighbour(olsrRp, sender);
       } else  {
         olsrRp->RemovePath (sender);
         if (m_snrHistory.find(sender) != m_snrHistory.end())
@@ -221,14 +234,27 @@ void Atn::SendReply(const int &msgType, ns3::Ipv4Address sender) {
   }
 }
 
+void Atn::InterviewNeighbour(Ptr<olsr::RoutingProtocol> olsr, ns3::Ipv4Address sender) {
+  Time nextInterview = calculateNextInterview(sender);
+  if (nextInterview < Seconds(0.0)) {
+    Send(m_senderSockets[sender], ERROR, 0);
+    // Требуется заменить на удаление из NeighborSet  в m_state
+    // Так как на основе состояния пересчитывается таблица маршрутизации m_route
+    olsr->RemovePath (sender);
+    m_snrHistory.erase (sender);
+    olsr->SendHello ();
+  } else {
+    Simulator::Schedule (nextInterview, &Atn::Send, this, m_senderSockets[sender], REQUEST, sender.Get ());
+  }
+}
+
 Time Atn::calculateNextInterview(Ipv4Address &node) {
   Ptr<SnrHistory> s = m_snrHistory[node].back();
   double snr = s->snr;
   double time = log(snr/MIN_SNR);
-  if (time > 1)
+  if (time > 1.0)
     time = 1.0;
-  else if (time < 0.0)
-    time = 0.0;
+  NS_LOG_DEBUG("Опрос узла " << node << " будет произведен через " << Seconds(time));
   return Seconds(time);
 }
 
@@ -236,20 +262,20 @@ Time Atn::calculateNextInterview(Ipv4Address &node) {
 // +---------------+--------------+--------------+-------------------+-------------------+----------------------------+
 // | Тип сообщения | Координата Х | Координата Y | Вектор скорости Х | Вектор скорости Y | IP Address будущего соседа |
 // +---------------+--------------+--------------+-------------------+-------------------+----------------------------+
-void Atn::WritePos(const int &msgType, std::string &data, Ipv4Address newNeighbour) {
+void Atn::WritePos(const int &msgType, std::string &data, uint32_t newNeighbour) {
   Ptr<MobilityModel> mobModel = GetNode()->GetObject<MobilityModel> ();
   Vector3D pos = mobModel->GetPosition ();
   Vector3D speed = mobModel->GetVelocity ();
 
   std::ostringstream strs;
-  strs << msgType << " " << roundf(pos.x * 10) / 100 << " " << roundf(pos.y * 10) / 100 << " " <<
-          roundf(speed.x * 10) / 100 << " " << roundf(speed.y * 10) / 100 << " " << newNeighbour.Get ();
+  strs << msgType << " " << roundf(pos.x * 100) / 100 << " " << roundf(pos.y * 100) / 100 << " " <<
+          roundf(speed.x * 100) / 100 << " " << roundf(speed.y * 100) / 100 << " " << newNeighbour;
   data = strs.str();
-  NS_LOG_DEBUG(data);
+  NS_LOG_DEBUG("[node " << GetNode ()->GetId () << "] " << data);
 }
 
-void
-Atn::Send (Ptr<Socket> sock, const int& msgType, Ipv4Address newNeighbour)
+int
+Atn::Send (Ptr<ns3::Socket> sock, int msgType, uint32_t newNeighbour)
 {
   NS_LOG_FUNCTION (this << Simulator::Now());
 
@@ -258,9 +284,8 @@ Atn::Send (Ptr<Socket> sock, const int& msgType, Ipv4Address newNeighbour)
   Ptr<Packet> p = Create<Packet> ((uint8_t*) msg.c_str(), msg.length());
   Ptr<ns3::Node> n = GetNode();
   Ptr<Ipv4> ipv4 = n->GetObject<Ipv4> ();
-  NS_LOG_DEBUG("Отправляем пакет от " << ipv4->GetAddress(1, 0).GetLocal());
   int status = sock->Send(p);
-  NS_ASSERT(status != -1);
+  return status;
 }
 
 void
@@ -295,7 +320,7 @@ Atn::StopApplication (void)
 }
 
 void Atn::GetRoutingTable() {
-  NS_LOG_FUNCTION(this << Simulator::Now ());
+  NS_LOG_FUNCTION(this << Simulator::Now () << "[node " << GetNode()->GetId());
   Ptr<ns3::Node> n = GetNode();
   Ptr<Ipv4> ipv4 = n->GetObject<Ipv4> ();
   Ptr <ns3::Ipv4RoutingProtocol> rp = ipv4->GetRoutingProtocol ();
@@ -316,16 +341,10 @@ void Atn::GetRoutingTable() {
   for (std::vector<olsr::RoutingTableEntry>::iterator it = allDestination.begin (); it != allDestination.end ();
        ++it) {
     if ((*it).distance == 1 && m_senderSockets.find ((*it).destAddr) == m_senderSockets.end ()) {
-      NS_LOG_DEBUG("Появился новый узел: " << (*it).destAddr);
-      std::vector<Ptr<SnrHistory> > snr;
-      m_snrHistory[(*it).destAddr] = snr;
-      TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
-      Ptr<Socket> senderSocket = Socket::CreateSocket (GetNode (), tid);
-      senderSocket->Bind ();
-      int status = senderSocket->Connect (InetSocketAddress ((*it).destAddr, 100));
-      NS_ASSERT(status != -1);
-      m_senderSockets.insert(std::pair <Ipv4Address, Ptr<Socket> > ((*it).destAddr, senderSocket));
-      Send(senderSocket, REQUEST, NULL);
+      NS_LOG_DEBUG("[node " << GetNode ()->GetId () << "] Появился новый узел: " << (*it).destAddr);
+
+      AddNodeToTable((*it).destAddr);
+      Send(m_senderSockets[(*it).destAddr], REQUEST, 0);
     }
 
     // Удалим узлы до которых по каким-либо причинам уже нет путей и алгоритм это не уследил
@@ -338,14 +357,27 @@ void Atn::GetRoutingTable() {
   }
 
   for (std::vector<Ipv4Address>::iterator it = destAddrForRemoving.begin(); it != destAddrForRemoving.end(); ++it) {
+    NS_LOG_DEBUG("Уничтожим " << *it << " в таблице маршрутизации");
     m_senderSockets[*it]->Close();
     m_senderSockets[*it] = 0;
     m_senderSockets.erase (*it);
     m_snrHistory.erase (*it);
+    m_neighbourPos.erase(*it);
   }
 
   // Сверяемся с таблицей маршрутизации каждую секунду, в соответствии со стандартным hello интервалом
   Simulator::Schedule(Seconds ((1)), &Atn::GetRoutingTable, this);
+}
+
+void Atn::AddNodeToTable (ns3::Ipv4Address &node) {
+  std::vector<Ptr<SnrHistory> > snr;
+  m_snrHistory[node] = snr;
+  TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
+  Ptr<Socket> senderSocket = Socket::CreateSocket (GetNode (), tid);
+  senderSocket->Bind ();
+  int status = senderSocket->Connect (InetSocketAddress (node, 100));
+  NS_ASSERT(status != -1);
+  m_senderSockets.insert(std::pair <Ipv4Address, Ptr<Socket> > (node, senderSocket));
 }
 
 

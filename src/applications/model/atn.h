@@ -85,7 +85,7 @@ private:
 
   void Receive (Ptr<Socket> socket);
 
-  void Send (Ptr<Socket> sock, const int& msgType, Ipv4Address newNeighbour);
+  int Send (Ptr<Socket> sock, int msgType, uint32_t newNeighbour);
 
   /**
    * @brief Вычисляет через какое время необходимо опросить узел. Данные для анализа берутся за временной промежуток,
@@ -94,14 +94,17 @@ private:
    */
   Time calculateNextInterview(Ipv4Address &node);
 
-  void WritePos(const int &msgType, std::string &data, Ipv4Address newNeighbour);
+  void WritePos(const int &msgType, std::string &data, uint32_t newNeighbour);
 
   /// Получение списка ip адресов соседей, радиус зоны передачи которых охватывает sender'a
   std::vector<ns3::Ipv4Address> getCrossNeighbours(ns3::Ipv4Address sender);
 
   /// Отправка ответа в зависимости от типа сообщения
-  void SendReply(const int &msgType, ns3::Ipv4Address sender);
+  void SendReply(const int &msgType, ns3::Ipv4Address sender, ns3::Ipv4Address *newNeighbour);
 
+  void AddNodeToTable (ns3::Ipv4Address &node);
+
+  void InterviewNeighbour(Ptr<olsr::RoutingProtocol> olsr, ns3::Ipv4Address sender);
   /**
    * Specifies  the number of data bytes to be sent.
    * The default is 56, which translates into 64 ICMP data bytes when combined with the 8 bytes of ICMP header data.
@@ -127,7 +130,7 @@ private:
   std::map<ns3::Ipv4Address, std::vector< Ptr<SnrHistory> > > m_snrHistory;
 
   /// Таблица маршрутизации
-  std::map<ns3::Ipv4Address, NeighbourPos*> neighbourPos;
+  std::map<ns3::Ipv4Address, NeighbourPos*> m_neighbourPos;
 };
 
 } // namespace ns3

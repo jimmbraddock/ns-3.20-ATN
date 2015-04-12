@@ -139,6 +139,7 @@ public:
   //========================== ATN CODE =========================================
   void RemovePath (const Ipv4Address &dest);
   void SendHello ();
+  OlsrState  GetState () {return m_state;}
   // ================================================================================
 
 protected:
@@ -170,6 +171,8 @@ private:
 
   /// Internal state with all needed data structs.
   OlsrState m_state;
+
+
 
   Ptr<Ipv4> m_ipv4;
 

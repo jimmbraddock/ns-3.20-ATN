@@ -69,7 +69,7 @@ int main (int argc, char **argv)
 AtnSimulate::AtnSimulate () :
   size (2),
   step (100),
-  totalTime (10),
+  totalTime (12),
   pcap (true),
   printRoutes (true)
 {
@@ -81,8 +81,8 @@ AtnSimulate::Configure (int argc, char **argv)
   // Enable AODV logs by default. Comment this if too noisy
   LogComponentEnable("V4Ping", LOG_LEVEL_ALL);
   LogComponentEnable("Atn", LOG_LEVEL_ALL);
-  LogComponentEnable("OlsrRoutingProtocol", LOG_LEVEL_DEBUG);
-  LogComponentEnable("YansWifiPhy", LOG_INFO);
+  //LogComponentEnable("OlsrRoutingProtocol", LOG_LEVEL_DEBUG);
+  //LogComponentEnable("YansWifiPhy", LOG_INFO);
   //LogComponentEnable("YansWifiChannel", LOG_INFO);
 
   //SeedManager::SetSeed (12345);
@@ -132,30 +132,42 @@ AtnSimulate::CreateNodes ()
       Names::Add (os.str (), nodes.Get (i));
     }
 
-  // На 120 метрах возможна связь. Пока это предел
-//  Ptr<MobilityModel> m = CreateObject<ConstantPositionMobilityModel> ();
-//  Ptr<MobilityModel> m2 = CreateObject<ConstantPositionMobilityModel> ();
-//  m2->SetPosition (Vector (60, 0, 0));
-//  nodes.Get (0)->AggregateObject (m);
+  // Модель для тестирования. Один узел стоит, другой удаляется.
+  Ptr<MobilityModel> constPos = CreateObject<ConstantPositionMobilityModel> ();
+  nodes.Get (0)->AggregateObject (constPos);
+
+  MobilityHelper mobility;
+  mobility.SetMobilityModel("ns3::ConstantVelocityMobilityModel");
+  mobility.Install(nodes.Get (1));
+  nodes.Get (1)->GetObject<ConstantVelocityMobilityModel> ()->SetVelocity (Vector(80, 0, 0));
+  mobility.SetPositionAllocator("ns3::RandomBoxPositionAllocator",
+                                "X", StringValue ("ns3::UniformRandomVariable[Min=50|Max=50]"),
+                                "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=0]"),
+                                "Z", StringValue ("ns3::UniformRandomVariable[Min=0|Max=0]"));
+
+
+
 
 //  nodes.Get (1)->AggregateObject (m2);
 
-  MobilityHelper mobility;
-  mobility.SetMobilityModel("ns3::GaussMarkovMobilityModel",
-                            "Bounds", BoxValue (Box (0, 1000, 0, 1000, 0, 0)),
-                            "TimeStep", TimeValue (Seconds (0.5)),
-                            "Alpha", DoubleValue (0.85),
-                            "MeanVelocity", StringValue ("ns3::UniformRandomVariable[Min=250|Max=600]"),
-                            "MeanDirection", StringValue ("ns3::UniformRandomVariable[Min=0|Max=6.283185307]"),
-                            "MeanPitch", StringValue ("ns3::UniformRandomVariable[Min=0.05|Max=0.05]"),
-                            "NormalVelocity", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.0|Bound=0.0]"),
-                            "NormalDirection", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.2|Bound=0.4]"),
-                            "NormalPitch", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.02|Bound=0.04]"));
-  mobility.SetPositionAllocator("ns3::RandomBoxPositionAllocator",
-                                "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
-                                "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
-                                "Z", StringValue ("ns3::UniformRandomVariable[Min=0|Max=0]"));
-  mobility.Install (nodes);
+
+  // Гауса Маркова модель движения. Будет использоваться в настоящем примере
+//  MobilityHelper mobility;
+//  mobility.SetMobilityModel("ns3::GaussMarkovMobilityModel",
+//                            "Bounds", BoxValue (Box (0, 1000, 0, 1000, 0, 0)),
+//                            "TimeStep", TimeValue (Seconds (0.5)),
+//                            "Alpha", DoubleValue (0.85),
+//                            "MeanVelocity", StringValue ("ns3::UniformRandomVariable[Min=250|Max=600]"),
+//                            "MeanDirection", StringValue ("ns3::UniformRandomVariable[Min=0|Max=6.283185307]"),
+//                            "MeanPitch", StringValue ("ns3::UniformRandomVariable[Min=0.05|Max=0.05]"),
+//                            "NormalVelocity", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.0|Bound=0.0]"),
+//                            "NormalDirection", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.2|Bound=0.4]"),
+//                            "NormalPitch", StringValue ("ns3::NormalRandomVariable[Mean=0.0|Variance=0.02|Bound=0.04]"));
+//  mobility.SetPositionAllocator("ns3::RandomBoxPositionAllocator",
+//                                "X", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+//                                "Y", StringValue ("ns3::UniformRandomVariable[Min=0|Max=200]"),
+//                                "Z", StringValue ("ns3::UniformRandomVariable[Min=0|Max=0]"));
+//  mobility.Install (nodes);
 }
 
 void
@@ -209,12 +221,12 @@ AtnSimulate::InstallApplications ()
 {
   AtnHelper atn;
   ApplicationContainer app = atn.Install (nodes);
-  app.Start (Seconds (0));
+  app.Start (Seconds (2));
   app.Stop (Seconds (totalTime) - Seconds (0.001));
 
 
 //  Ptr<Node> appSource = NodeList::GetNode (0);
-//  Ptr<Node> appSink = NodeList::GetNode (2);
+//  Ptr<Node> appSink = NodeList::GetNode (1);
 //  // Let's fetch the IP address of the last node, which is on Ipv4Interface 1
 //  Ipv4Address remoteAddr = appSink->GetObject<Ipv4> ()->GetAddress (1, 0).GetLocal ();
 
@@ -223,14 +235,14 @@ AtnSimulate::InstallApplications ()
 //  onoff.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"));
 //  onoff.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.0]"));
 //  ApplicationContainer app2 = onoff.Install (appSource);
-//  app2.Start (Seconds (3));
-//  app2.Stop (Seconds (7));
+//  app2.Start (Seconds (1));
+//  app2.Stop (Seconds (15));
 
 //  // Create a packet sink to receive these packets
 //  PacketSinkHelper sink ("ns3::UdpSocketFactory",
 //                         InetSocketAddress (Ipv4Address::GetAny (), 4567));
 //  ApplicationContainer app3 = sink.Install (appSink);
 //  app3.Start (Seconds (3));
-//  app3.Stop (Seconds (totalTime) - Seconds (0.001));
+//  app3.Stop (Seconds (15));
 }
 
